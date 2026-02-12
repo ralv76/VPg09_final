@@ -1,0 +1,22 @@
+# systemd unit для Генератора подкастов. ТЗ 7.2: автозапуск при перезагрузке.
+# Установка (от пользователя не root — использовать user):
+# cp podcast-gen.service /etc/systemd/system/
+# systemctl --user daemon-reload && systemctl --user enable podcast-gen && systemctl --user start podcast-gen
+# Или с sudo для системы: sudo systemctl enable podcast-gen && sudo systemctl start podcast-gen
+
+[Unit]
+Description=Генератор подкастов (Flask)
+After=network.target
+
+[Service]
+Type=simple
+User=podcast
+Group=podcast
+WorkingDirectory=/opt/podcast-gen
+Environment="PATH=/opt/podcast-gen/venv/bin"
+ExecStart=/opt/podcast-gen/venv/bin/gunicorn -w 1 -b 127.0.0.1:5000 --worker-class gevent "backend.app:app"
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

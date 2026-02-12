@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Главная</a></li>
+        <li class="breadcrumb-item active">Подкасты</li>
+    </ol>
+</nav>
+{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="card shadow-sm p-4">
+            <h2 class="text-primary mb-4">Сгенерированные подкасты</h2>
+            <p class="text-muted small mb-4">Список готовых подкастов. Нажмите на название или кнопку, чтобы перейти к прослушиванию и скачиванию.</p>
+            <div id="loading" class="text-muted">Загрузка…</div>
+            <div id="podcastsList" class="d-none"></div>
+            <div id="emptyBlock" class="alert alert-secondary d-none">Пока нет ни одного готового подкаста. <a href="/create">Создать подкаст</a>.</div>
+            <div id="errorBlock" class="alert alert-danger d-none"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+    const loading = document.getElementById('loading');
+    const listEl = document.getElementById('podcastsList');
+    const emptyBlock = document.getElementById('emptyBlock');
+    const errorBlock = document.getElementById('errorBlock');
+
+    fetch('/api/podcasts')
+        .then(r => r.json())
+        .then(function(data) {
+            loading.classList.add('d-none');
+            if (data.podcasts && data.podcasts.length > 0) {
+                listEl.classList.remove('d-none');
+                listEl.innerHTML = '';
+                data.podcasts.forEach(function(p) {
+                    const card = document.createElement('div');
+                    card.className = 'card mb-3 shadow-sm';
+                    const sec = p.duration_seconds || 0;
+                    const duration = Math.floor(sec / 60) + ' мин ' + (sec % 60) + ' сек';
+                    const dateStr = p.created_at ? new Date(p.created_at).toLocaleString('ru-RU') : '';
+                    card.innerHTML =
+                        '<div class="card-body d-flex flex-wrap align-items-center gap-3">' +
+                        (p.cover_url ? '<img src="' + p.cover_url + '" alt="" class="rounded" style="width:64px;height:64px;object-fit:cover;">' : '') +
+                        '<div class="flex-grow-1 min-w-0">' +
+                        '<h5 class="card-title mb-1"><a href="' + p.url + '">' + (p.title || 'Подкаст') + '</a></h5>' +
+                        '<p class="card-text small text-muted mb-0">' + (p.description ? p.description.slice(0, 120) + (p.description.length > 120 ? '…' : '') : '') + '</p>' +
+                        '<span class="small text-muted">' + duration + (dateStr ? ' · ' + dateStr : '') + '</span>' +
+                        '</div>' +
+                        '<a href="' + p.url + '" class="btn btn-primary">Слушать</a>' +
+                        '</div>';
+                    listEl.appendChild(card);
+                });
+            } else {
+                emptyBlock.classList.remove('d-none');
+            }
+        })
+        .catch(function() {
+            loading.classList.add('d-none');
+            errorBlock.textContent = 'Не удалось загрузить список подкастов.';
+            errorBlock.classList.remove('d-none');
+        });
+})();
+</script>
+{% endblock %}

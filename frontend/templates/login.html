@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Вход — Генератор подкастов{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h2 class="h4 mb-4">Вход в приложение</h2>
+                {% if error %}
+                <div class="alert alert-danger py-2" role="alert">{{ error }}</div>
+                {% endif %}
+                <form method="post" action="{{ url_for('main.login') }}">
+                    <div class="mb-3">
+                        <label class="form-label" for="username">Логин</label>
+                        <input type="text" class="form-control" id="username" name="username" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="password">Пароль</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Войти</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

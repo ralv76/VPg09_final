@@ -1,0 +1,631 @@
+{% extends "base.html" %}
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Главная</a></li>
+        <li class="breadcrumb-item active">Создание подкаста</li>
+    </ol>
+</nav>
+{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="card shadow-sm p-4">
+            <h2 class="text-primary mb-4">Создание подкаста</h2>
+            <div id="apiStatusBlock" class="alert alert-secondary small mb-3" role="status">
+                <strong>Сервисы:</strong> <span id="statusLlm">—</span> <span id="statusTts">—</span> <span id="statusImage">—</span>
+                <span id="statusQueue" class="d-none ms-2">Очередь: <span id="statusQueueNum">0</span></span>
+            </div>
+            <ul class="nav nav-tabs mb-4" id="stepTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="step1-tab" data-bs-toggle="tab" data-bs-target="#step1" type="button">Шаг 1: Контент</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="step2-tab" data-bs-toggle="tab" data-bs-target="#step2" type="button">Шаг 2: Сценарий и голоса</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="step3-tab" data-bs-toggle="tab" data-bs-target="#step3" type="button">Шаг 3: Музыка и запуск</button>
+                </li>
+            </ul>
+            <div class="tab-content" id="stepContent">
+                <div class="tab-pane fade show active" id="step1">
+                    <div class="mb-3">
+                        <label class="form-label">Загрузите файл (PDF, DOCX) или вставьте URL</label>
+                        <div class="border border-2 border-dashed rounded p-4 text-center bg-white" id="dropZone">
+                            <p class="mb-2">Перетащите файл сюда или выберите файл</p>
+                            <input type="file" id="fileInput" class="d-none" accept=".pdf,.docx,.doc">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnSelectFile">Выбрать файл</button>
+                        </div>
+                        <div class="mt-2">
+                            <input type="url" class="form-control" id="urlInput" placeholder="https://example.com/article">
+                        </div>
+                        <p class="small text-muted mt-1 mb-0">Файл до 10 МБ. Email, контакты с @ и телефоны в тексте будут удалены.</p>
+                    </div>
+                    <div id="statusMessage" class="alert alert-info d-none" role="status"></div>
+                    <div id="removedPiiBlock" class="alert alert-warning d-none" role="alert">
+                        <strong>Удалены персональные данные:</strong>
+                        <ul id="removedPiiList" class="mb-0 small"></ul>
+                    </div>
+                    <div id="previewText" class="d-none mt-3">
+                        <label class="form-label">Извлечённый текст</label>
+                        <pre class="bg-light p-3 rounded small" id="previewTextBody" style="max-height: 320px; overflow: auto;"></pre>
+                    </div>
+                    <button type="button" class="btn btn-primary mt-2" id="btnNext1">Далее</button>
+                </div>
+                <div class="tab-pane fade" id="step2">
+                    <div class="mb-3">
+                        <label class="form-label">О чём подкаст (подача)</label>
+                        <select class="form-select" id="presentation">
+                            <option value="neutral">Нейтральная подача</option>
+                            <option value="company_reminder">Напоминание от компании (вопросы к решению, ненавязчивая реклама)</option>
+                            <option value="knowledge_broadcast">Трансляция знаний («знаете ли вы, что…»)</option>
+                            <option value="educational">Обучение («обратите внимание, чтобы сделать X — нужно Y»)</option>
+                            <option value="storytelling">Как история (повествование с завязкой и выводом)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Формат</label>
+                        <select class="form-select" id="format">
+                            <option value="dialog">Диалог (2 ведущих)</option>
+                            <option value="monologue">Монолог</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Стиль</label>
+                        <select class="form-select" id="style">
+                            <option value="conversational">Разговорный</option>
+                            <option value="formal">Формальный</option>
+                            <option value="energetic">Энергичный</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Длительность</label>
+                        <select class="form-select" id="duration">
+                            <option value="very_short">До 1 минуты</option>
+                            <option value="short">Краткий (3–5 мин)</option>
+                            <option value="standard">Стандартный (7–10 мин)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Скорость речи</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="number" class="form-control" id="voiceSpeed" value="1" min="0.5" max="2" step="0.1" style="width: 4rem;" title="1 = нормально">
+                            <input type="range" class="form-range flex-grow-1" id="voiceSpeedSlider" min="0.5" max="2" step="0.1" value="1" style="max-width: 200px;">
+                        </div>
+                        <small class="text-muted">1 — нормально; 0.5–2.0</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Голос ведущего 1</label>
+                        <select class="form-select" id="voice1"></select>
+                        <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="btnPreview1">Прослушать пример</button>
+                        <audio id="previewAudio1" class="d-none" controls style="max-width: 100%; height: 36px;"></audio>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Голос ведущего 2</label>
+                        <select class="form-select" id="voice2"></select>
+                        <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="btnPreview2">Прослушать пример</button>
+                        <audio id="previewAudio2" class="d-none" controls style="max-width: 100%; height: 36px;"></audio>
+                    </div>
+                    <div id="voicesUnavailableMsg" class="alert alert-warning small d-none mb-2"></div>
+                    <button type="button" class="btn btn-primary mt-2" id="btnNext2">Далее</button>
+                </div>
+                <div class="tab-pane fade" id="step3">
+                    <div class="mb-3">
+                        <label class="form-label">Музыка</label>
+                        <select class="form-select" id="musicId">
+                            <option value="">Без мелодии</option>
+                        </select>
+                        <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="btnPreviewMusic">Прослушать</button>
+                        <audio id="musicPreviewAudio" class="d-none mt-1" controls style="max-width: 100%; height: 36px;"></audio>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Громкость музыки (дБ)</label>
+                        <input type="number" class="form-control" id="musicVolumeDb" value="-20" min="-40" max="0" step="1">
+                    </div>
+                    <button type="button" class="btn btn-primary btn-lg" id="btnStart">Запустить генерацию</button>
+                </div>
+            </div>
+            <div id="progressBlock" class="d-none mt-4">
+                <label class="form-label">Прогресс</label>
+                <div class="progress mb-2" style="height: 24px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" style="width: 0%"></div>
+                </div>
+                <p class="small mb-1" id="progressStage"></p>
+                <p class="small text-muted mb-1" id="progressActivity" aria-live="polite"></p>
+                <p class="small font-monospace text-secondary mb-1" id="progressDebug" aria-live="polite" title="Отладка: последний ответ API"></p>
+                <textarea class="form-control form-control-sm font-monospace small mb-2" id="progressActivityLog" rows="3" readonly placeholder="Журнал активности…"></textarea>
+                <p class="small text-muted d-none" id="progressQueueMsg">Запрос в очереди, ожидание завершения предыдущих задач.</p>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancel">Отменить</button>
+            </div>
+            <div id="errorBlock" class="alert alert-danger d-none mt-3" role="alert"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const urlInput = document.getElementById('urlInput');
+    const btnSelectFile = document.getElementById('btnSelectFile');
+    const previewText = document.getElementById('previewText');
+    const previewTextBody = document.getElementById('previewTextBody');
+    const statusMessage = document.getElementById('statusMessage');
+    const removedPiiBlock = document.getElementById('removedPiiBlock');
+    const removedPiiList = document.getElementById('removedPiiList');
+    const btnStart = document.getElementById('btnStart');
+    const progressBlock = document.getElementById('progressBlock');
+    const progressBar = document.getElementById('progressBar');
+    const progressStage = document.getElementById('progressStage');
+    const progressActivity = document.getElementById('progressActivity');
+    const progressDebug = document.getElementById('progressDebug');
+    const progressActivityLog = document.getElementById('progressActivityLog');
+    const btnCancel = document.getElementById('btnCancel');
+    const errorBlock = document.getElementById('errorBlock');
+    const musicId = document.getElementById('musicId');
+    const voice1 = document.getElementById('voice1');
+    const voice2 = document.getElementById('voice2');
+    const btnPreview1 = document.getElementById('btnPreview1');
+    const btnPreview2 = document.getElementById('btnPreview2');
+    const previewAudio1 = document.getElementById('previewAudio1');
+    const previewAudio2 = document.getElementById('previewAudio2');
+    const btnPreviewMusic = document.getElementById('btnPreviewMusic');
+    const musicPreviewAudio = document.getElementById('musicPreviewAudio');
+    const voiceSpeedSlider = document.getElementById('voiceSpeedSlider');
+    const voicesUnavailableMsg = document.getElementById('voicesUnavailableMsg');
+    const progressQueueMsg = document.getElementById('progressQueueMsg');
+
+    let extractedText = '';
+    let sessionId = 'session-' + Math.random().toString(36).slice(2);
+    let musicTracks = [];
+
+    function setStatus(msg, type) {
+        statusMessage.textContent = msg;
+        statusMessage.className = 'alert alert-' + (type || 'info') + ' mt-2';
+        statusMessage.classList.remove('d-none');
+    }
+    function hideStatus() { statusMessage.classList.add('d-none'); }
+    function showError(msg, rec) {
+        errorBlock.textContent = msg + (rec ? ' ' + rec : '');
+        errorBlock.classList.remove('d-none');
+    }
+    function hideError() { errorBlock.classList.add('d-none'); }
+    function goToStep(stepNum) {
+        document.querySelector('#step' + stepNum + '-tab').click();
+    }
+
+    document.getElementById('btnNext1').addEventListener('click', () => goToStep(2));
+    document.getElementById('btnNext2').addEventListener('click', () => goToStep(3));
+
+    const voiceSpeedEl = document.getElementById('voiceSpeed');
+    voiceSpeedEl.addEventListener('input', function() {
+        const v = parseFloat(this.value) || 1;
+        voiceSpeedSlider.value = Math.min(2, Math.max(0.5, v));
+    });
+    voiceSpeedSlider.addEventListener('input', function() {
+        voiceSpeedEl.value = this.value;
+    });
+
+    fetch('/api/status').then(r => r.json()).then(data => {
+        document.getElementById('statusLlm').textContent = 'LLM: ' + (data.llm === 'configured' ? 'подключён' : 'не настроен');
+        document.getElementById('statusTts').textContent = 'TTS: ' + (data.tts === 'configured' ? 'подключён' : 'не настроен');
+        document.getElementById('statusImage').textContent = 'Картинки: ' + (data.image === 'configured' ? 'подключён' : 'не настроен');
+        if (data.queue_pending > 0) {
+            document.getElementById('statusQueue').classList.remove('d-none');
+            document.getElementById('statusQueueNum').textContent = data.queue_pending;
+        }
+    }).catch(() => {});
+
+    function showRemoved(removed) {
+        if (!removed || (!removed.phones && !removed.contacts)) {
+            removedPiiBlock.classList.add('d-none');
+            return;
+        }
+        removedPiiList.innerHTML = '';
+        if (removed.phones && removed.phones.length) {
+            const li = document.createElement('li');
+            li.textContent = 'Телефоны: ' + removed.phones.length + ' (скрыты)';
+            removedPiiList.appendChild(li);
+        }
+        if (removed.contacts && removed.contacts.length) {
+            const li = document.createElement('li');
+            li.textContent = 'Контакты с @: ' + removed.contacts.length + ' (скрыты)';
+            removedPiiList.appendChild(li);
+        }
+        removedPiiBlock.classList.remove('d-none');
+    }
+
+    btnSelectFile.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+        if (!fileInput.files.length) return;
+        urlInput.value = '';
+        const file = fileInput.files[0];
+        setStatus('Файл получен: ' + file.name + '. Обработка...', 'info');
+        hideError();
+        removedPiiBlock.classList.add('d-none');
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const r = await fetch('/api/extract', { method: 'POST', body: formData });
+            const data = await r.json();
+            if (!r.ok) {
+                setStatus('Ошибка: ' + (data.error || 'не удалось обработать файл'), 'danger');
+                if (data.recommendation) setStatus(statusMessage.textContent + ' ' + data.recommendation, 'danger');
+                return;
+            }
+            extractedText = data.text || '';
+            previewTextBody.textContent = extractedText;
+            previewText.classList.remove('d-none');
+            setStatus('Готово. Текст извлечён (' + (data.length || 0) + ' символов).', 'success');
+            showRemoved(data.removed);
+        } catch (e) {
+            setStatus('Ошибка сети. Проверьте подключение.', 'danger');
+        }
+    });
+    urlInput.addEventListener('blur', runExtractUrl);
+    urlInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); runExtractUrl(); } });
+    async function runExtractUrl() {
+        const url = urlInput.value.trim();
+        if (!url) return;
+        fileInput.value = '';
+        setStatus('Загрузка страницы...', 'info');
+        hideError();
+        removedPiiBlock.classList.add('d-none');
+        try {
+            const r = await fetch('/api/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: url }) });
+            const data = await r.json();
+            if (!r.ok) {
+                setStatus('Ошибка: ' + (data.error || 'не удалось загрузить страницу'), 'danger');
+                return;
+            }
+            extractedText = data.text || '';
+            previewTextBody.textContent = extractedText;
+            previewText.classList.remove('d-none');
+            setStatus('Готово. Текст извлечён (' + (data.length || 0) + ' символов).', 'success');
+            showRemoved(data.removed);
+        } catch (e) {
+            setStatus('Ошибка сети.', 'danger');
+        }
+    }
+
+    fetch('/api/voices').then(r => r.json()).then(data => {
+        const voices = data.voices || [];
+        voice1.innerHTML = '';
+        voice2.innerHTML = '';
+        voices.forEach(v => {
+            const o1 = document.createElement('option');
+            o1.value = v.id; o1.textContent = v.name || v.id;
+            voice1.appendChild(o1);
+            const o2 = document.createElement('option');
+            o2.value = v.id; o2.textContent = v.name || v.id;
+            voice2.appendChild(o2);
+        });
+        if (voices.length >= 2) {
+            voice2.selectedIndex = 1;
+        }
+        if (data.from_api === false && data.message) {
+            voicesUnavailableMsg.textContent = data.message;
+            voicesUnavailableMsg.classList.remove('d-none');
+        }
+    }).catch(() => {
+        ['male_1', 'male_2', 'female_1', 'female_2'].forEach((id, i) => {
+            const names = ['Мужской 1', 'Мужской 2', 'Женский 1', 'Женский 2'];
+            const o1 = document.createElement('option'); o1.value = id; o1.textContent = names[i]; voice1.appendChild(o1);
+            const o2 = document.createElement('option'); o2.value = id; o2.textContent = names[i]; voice2.appendChild(o2);
+        });
+        voice2.selectedIndex = 1;
+    });
+
+    function onPreviewError(msgEl, voiceId) {
+        return () => {
+            msgEl.classList.remove('d-none');
+            msgEl.textContent = 'Превью недоступно. Проверьте TTS API или положите файл static/voice_samples/' + voiceId + '.mp3';
+        };
+    }
+    btnPreview1.addEventListener('click', function() {
+        const id = voice1.value;
+        if (!id) return;
+        voicesUnavailableMsg.classList.add('d-none');
+        previewAudio1.onerror = onPreviewError(voicesUnavailableMsg, id);
+        previewAudio1.src = '/api/voices/preview/' + encodeURIComponent(id);
+        previewAudio1.classList.remove('d-none');
+        previewAudio1.play();
+    });
+    btnPreview2.addEventListener('click', function() {
+        const id = voice2.value;
+        if (!id) return;
+        voicesUnavailableMsg.classList.add('d-none');
+        previewAudio2.onerror = onPreviewError(voicesUnavailableMsg, id);
+        previewAudio2.src = '/api/voices/preview/' + encodeURIComponent(id);
+        previewAudio2.classList.remove('d-none');
+        previewAudio2.play();
+    });
+
+    fetch('/api/music').then(r => r.json()).then(data => {
+        musicTracks = data.tracks || [];
+        musicId.innerHTML = '<option value="">Без мелодии</option><option value="auto">Автовыбор по стилю</option>';
+        musicTracks.forEach(t => {
+            const o = document.createElement('option');
+            o.value = t.id; o.textContent = t.name || t.id;
+            musicId.appendChild(o);
+        });
+    }).catch(() => {});
+
+    btnPreviewMusic.addEventListener('click', function() {
+        const id = musicId.value;
+        if (!id) return;
+        const t = musicTracks.find(x => x.id === id);
+        if (!t || !t.preview_url) return;
+        musicPreviewAudio.src = t.preview_url;
+        musicPreviewAudio.classList.remove('d-none');
+        musicPreviewAudio.play();
+    });
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-primary'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-primary'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('border-primary');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            urlInput.value = '';
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    });
+
+    btnStart.addEventListener('click', async () => {
+        if (!extractedText && !fileInput.files.length && !urlInput.value.trim()) {
+            showError('Загрузите файл или укажите URL (Шаг 1). Текст извлечётся автоматически при запуске.');
+            return;
+        }
+        hideError();
+        progressBlock.classList.remove('d-none');
+        progressBar.style.width = '2%';
+        progressBar.setAttribute('aria-valuenow', 2);
+        progressStage.textContent = 'Создание задачи…';
+        progressActivityLog.value = '';
+        btnStart.disabled = true;
+        const formData = new FormData();
+        if (fileInput.files.length) formData.append('file', fileInput.files[0]);
+        formData.append('format', document.getElementById('format').value);
+        formData.append('style', document.getElementById('style').value);
+        formData.append('duration', document.getElementById('duration').value);
+        formData.append('presentation', document.getElementById('presentation').value);
+        formData.append('voice_speed', document.getElementById('voiceSpeed').value);
+        formData.append('voice_1', voice1.value);
+        formData.append('voice_2', voice2.value);
+        formData.append('music_volume_db', document.getElementById('musicVolumeDb').value);
+        if (musicId.value) formData.append('music_id', musicId.value);
+        formData.append('base_url', window.location.origin);
+        let taskId;
+        let r;
+        try {
+            if (fileInput.files.length) {
+                r = await fetch('/api/tasks', { method: 'POST', headers: { 'X-Session-Id': sessionId }, body: formData });
+            } else {
+                r = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId },
+                    body: JSON.stringify({
+                        url: urlInput.value.trim(),
+                        format: document.getElementById('format').value,
+                        style: document.getElementById('style').value,
+                        duration: document.getElementById('duration').value,
+                        presentation: document.getElementById('presentation').value,
+                        voice_speed: parseFloat(document.getElementById('voiceSpeed').value) || 1,
+                        voice_map: { '1': voice1.value, '2': voice2.value },
+                        music_volume_db: parseFloat(document.getElementById('musicVolumeDb').value),
+                        music_id: musicId.value || null,
+                        base_url: window.location.origin
+                    })
+                });
+            }
+        } catch (e) {
+            showError('Ошибка сети или таймаут. Проверьте подключение и нажмите «Запустить генерацию» ещё раз.');
+            progressBlock.classList.add('d-none');
+            btnStart.disabled = false;
+            return;
+        }
+        let data;
+        try {
+            data = await r.json();
+        } catch (parseErr) {
+            if (r.ok) {
+                showError('Ответ сервера в неожиданном формате. Задача могла создаться — подождите 1–2 минуты и обновите страницу или откройте главную.');
+            } else {
+                showError('Ошибка ответа сервера. Проверьте подключение и попробуйте снова.');
+            }
+            progressBlock.classList.add('d-none');
+            btnStart.disabled = false;
+            return;
+        }
+        if (!r.ok) { showError(data.error || 'Ошибка', data.recommendation); progressBlock.classList.add('d-none'); btnStart.disabled = false; return; }
+        taskId = data.task_id || data.taskId || (data && data[0] && (data[0].task_id || data[0].taskId));
+        if (typeof console !== 'undefined' && console.log) console.log('[progress] Ответ создания задачи:', data, 'taskId=', taskId);
+        if (!taskId) {
+            showError('Сервер не вернул идентификатор задачи (task_id). Ответ: ' + JSON.stringify(data).slice(0, 200));
+            progressBlock.classList.add('d-none');
+            btnStart.disabled = false;
+            return;
+        }
+        if (progressDebug) progressDebug.textContent = '[DEBUG] taskId=' + taskId + ' — старт опроса';
+        progressActivityLog.value = '';
+        progressActivity.textContent = '';
+        const queuePending = data.queue_pending || 0;
+        if (queuePending > 1) {
+            progressQueueMsg.classList.remove('d-none');
+            progressStage.textContent = 'Запрос в очереди. Ожидание… (5%)';
+        } else {
+            progressQueueMsg.classList.add('d-none');
+            progressStage.textContent = 'Ожидание обновления статуса…';
+        }
+        progressBar.style.width = '5%';
+        progressBar.setAttribute('aria-valuenow', 5);
+        const stageOrder = ['extract', 'script', 'tts', 'music_cover', 'rss', 'done'];
+        const stageLabels = {
+            extract: 'Извлечение текста',
+            script: 'Генерация сценария',
+            tts: 'Синтез речи',
+            music_cover: 'Музыка и обложка',
+            rss: 'Финализация',
+            done: 'Завершено успешно'
+        };
+        const stages = { extract: 15, script: 35, tts: 70, music_cover: 85, rss: 95, done: 100 };
+        const totalSteps = 5;
+        let pollInterval;
+        let progressWs = null;
+        const activityLogLines = [];
+        const maxActivityLogLines = 8;
+        function appendActivityLog(msg) {
+            if (!msg || typeof msg !== 'string') return;
+            const t = String(msg).trim();
+            if (!t) return;
+            const last = activityLogLines[activityLogLines.length - 1];
+            if (last === t) return;
+            activityLogLines.push(t);
+            if (activityLogLines.length > maxActivityLogLines) activityLogLines.shift();
+            progressActivityLog.value = activityLogLines.join('\n');
+            progressActivityLog.scrollTop = progressActivityLog.scrollHeight;
+        }
+        function stepIndex(stage) {
+            const i = stageOrder.indexOf(stage || '');
+            if (i < 0) return 0;
+            return Math.min(i + 1, totalSteps);
+        }
+        function updateProgress(d, fromWs) {
+            if (typeof console !== 'undefined' && console.log) console.log('[progress] updateProgress', { status: d.status, progress: d.progress, stage: d.stage, error: d.error, fromWs: fromWs });
+            if (progressDebug) progressDebug.textContent = '[DEBUG] updateProgress: status=' + (d.status || '') + ' progress=' + (d.progress != null ? d.progress : '') + ' fromWs=' + fromWs;
+            if (d.error) {
+                if (fromWs && d.error === 'task_id required') return;
+                progressStage.textContent = (d.error === 'task not found' ? 'Задача не найдена.' : d.error);
+                return;
+            }
+            var status = (d.status || '').toLowerCase();
+            var stage = (d.stage || '').toLowerCase();
+            var p = (d.progress != null && d.progress !== undefined) ? Math.min(100, Math.max(0, parseInt(d.progress, 10) || 0)) : (stages[stage] || 0);
+            if (status === 'pending' && p === 0) p = 5;
+            var activityMsg = (d.activity_message || '').trim();
+            if (activityMsg) {
+                progressActivity.textContent = activityMsg;
+                progressActivity.classList.remove('d-none');
+                appendActivityLog(activityMsg);
+            } else {
+                progressActivity.textContent = '';
+            }
+            progressBar.style.width = p + '%';
+            progressBar.setAttribute('aria-valuenow', p);
+            var stepNum = stepIndex(stage);
+            var label = stageLabels[stage] || stage || '';
+            if (status === 'pending') {
+                progressStage.textContent = 'Запрос в очереди. Ожидание запуска… (' + p + '%)';
+            } else if (status === 'running') {
+                progressStage.textContent = (stepNum ? 'Шаг ' + stepNum + ' из ' + totalSteps + ': ' : '') + (label || ('Обработка: ' + stage)) + ' — ' + p + '%';
+            } else if (status === 'completed') {
+                progressBar.style.width = '100%';
+                progressStage.textContent = 'Завершено успешно. Переход к результату…';
+                if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+                if (progressWs && progressWs.readyState === WebSocket.OPEN) progressWs.close();
+                btnStart.disabled = false;
+                window.location.href = '/result/' + taskId;
+            } else if (status === 'failed') {
+                progressStage.textContent = 'Завершено с ошибкой: ' + (d.error_message || '');
+                if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+                btnStart.disabled = false;
+            } else if (status === 'cancelled') {
+                progressStage.textContent = 'Отменено.';
+                if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+                btnStart.disabled = false;
+            }
+        }
+        let pollFailCount = 0;
+        let pollCount = 0;
+        const pollStartTime = Date.now();
+        function doPoll() {
+            if (!taskId) {
+                if (typeof console !== 'undefined' && console.log) console.log('[progress] doPoll пропущен: taskId пустой');
+                return;
+            }
+            pollCount++;
+            var url = '/api/tasks/' + taskId + '?_=' + Date.now();
+            if (typeof console !== 'undefined' && console.log) console.log('[progress] doPoll #' + pollCount + ' taskId=' + taskId);
+            if (progressDebug && pollCount <= 2) progressDebug.textContent = '[DEBUG] doPoll #' + pollCount + ' url=' + url;
+            fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+                .then(function(r) {
+                    return r.text().then(function(text) {
+                        var data = null;
+                        try { data = text ? JSON.parse(text) : null; } catch (e) {
+                            if (typeof console !== 'undefined' && console.warn) console.warn('[progress] parse error', e, 'text length=', (text && text.length) || 0);
+                        }
+                        return { ok: r.ok, status: r.status, data: data };
+                    });
+                })
+                .then(function(res) {
+                    pollFailCount = 0;
+                    var s = res.data && (res.data.status || '').toLowerCase();
+                    var hasResult = !!(res.data && res.data.result);
+                    if (typeof console !== 'undefined' && console.log) console.log('[progress] ответ опроса', { ok: res.ok, status: res.status, dataStatus: res.data && res.data.status, dataProgress: res.data && res.data.progress, hasResult: hasResult, dataKeys: res.data ? Object.keys(res.data) : [] });
+                    if (progressDebug) progressDebug.textContent = '[DEBUG] ответ: status=' + (res.data && res.data.status) + ' progress=' + (res.data && res.data.progress) + ' hasResult=' + hasResult + ' ok=' + res.ok;
+                    if (res.data) {
+                        if (s === 'completed' || (hasResult && s !== 'failed')) {
+                            if (typeof console !== 'undefined' && console.log) console.log('[progress] REDIRECT: completed, taskId=' + taskId);
+                            if (progressDebug) progressDebug.textContent = '[DEBUG] REDIRECT выполняется → /result/' + taskId;
+                            if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+                            progressBar.style.width = '100%';
+                            progressStage.textContent = 'Завершено успешно. Переход к результату…';
+                            if (progressWs && progressWs.readyState === WebSocket.OPEN) progressWs.close();
+                            btnStart.disabled = false;
+                            window.location.replace('/result/' + taskId);
+                            return;
+                        }
+                        updateProgress(res.data, false);
+                        if (s === 'pending' && pollCount % 3 === 0) {
+                            var sec = Math.floor((Date.now() - pollStartTime) / 1000);
+                            appendActivityLog('Проверка статуса… (' + sec + ' с)');
+                        }
+                        if (s === 'failed' || s === 'cancelled') {
+                            if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+                        }
+                    } else {
+                        if (typeof console !== 'undefined' && console.warn) console.warn('[progress] res.data пустой', { ok: res.ok, status: res.status });
+                        if (!res.ok) appendActivityLog('Ошибка ответа сервера. Повтор…');
+                    }
+                })
+                .catch(function(err) {
+                    pollFailCount++;
+                    if (typeof console !== 'undefined' && console.warn) console.warn('[progress] fetch catch', err);
+                    if (progressDebug) progressDebug.textContent = '[DEBUG] fetch ошибка: ' + (err && err.message || String(err));
+                    appendActivityLog('Проверка связи…');
+                    if (pollFailCount >= 2) {
+                        progressStage.textContent = 'Нет связи с сервером. Повторяем запросы…';
+                    }
+                });
+        }
+        progressStage.textContent = 'Ожидание обновления статуса…';
+        activityLogLines.push('Задача создана. Ожидание запуска…');
+        progressActivityLog.value = activityLogLines.join('\n');
+        progressActivityLog.scrollTop = progressActivityLog.scrollHeight;
+        doPoll();
+        setTimeout(doPoll, 350);
+        setTimeout(doPoll, 800);
+        pollInterval = setInterval(doPoll, 1000);
+        try {
+            progressWs = new WebSocket((window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host + '/ws');
+            progressWs.onmessage = function(ev) {
+                try {
+                    var d = JSON.parse(ev.data);
+                    updateProgress(d, true);
+                } catch (e) {}
+            };
+            progressWs.onopen = function() {
+                if (taskId) setTimeout(function() { if (progressWs && progressWs.readyState === WebSocket.OPEN) progressWs.send(JSON.stringify({ task_id: taskId })); }, 50);
+            };
+            progressWs.onerror = function() { /* не перезаписываем статус — опрос остаётся основным источником */ };
+        } catch (e) {}
+        btnCancel.onclick = () => {
+            if (taskId) fetch('/api/tasks/' + taskId + '/cancel', { method: 'POST' }).then(() => { progressStage.textContent = 'Отменено'; btnStart.disabled = false; });
+        };
+    });
+})();
+</script>
+{% endblock %}

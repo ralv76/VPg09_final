@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Главная</a></li>
+        <li class="breadcrumb-item"><a href="/create">Создать подкаст</a></li>
+        <li class="breadcrumb-item active">Результат</li>
+    </ol>
+</nav>
+{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card shadow-sm p-4">
+            <h2 class="text-primary mb-4">Ваш подкаст готов</h2>
+            <div id="loading" class="text-muted">Загрузка...</div>
+            <div id="resultBlock" class="d-none">
+                <div class="row mb-4">
+                    <div class="col-md-4 text-center">
+                        <img id="coverImg" src="" alt="Обложка" class="img-fluid rounded shadow-sm" style="max-height: 200px;">
+                        <p id="noCoverMsg" class="small text-muted d-none mt-2">Обложка не сгенерирована</p>
+                    </div>
+                    <div class="col-md-8">
+                        <h4 id="resultTitle" class="mb-2"></h4>
+                        <p class="text-muted small" id="resultDesc"></p>
+                        <p class="small" id="resultDuration"></p>
+                    </div>
+                </div>
+                <audio id="audioPlayer" controls class="w-100 mb-3"></audio>
+                <div class="d-flex flex-wrap gap-2">
+                    <a id="btnMp3" href="" class="btn btn-primary" download>Скачать MP3</a>
+                    <a id="btnCover" href="" class="btn btn-outline-secondary" download>Скачать обложку</a>
+                    <a id="btnRss" href="" class="btn btn-outline-secondary" download>Скачать RSS</a>
+                </div>
+            </div>
+            <div id="errorBlock" class="alert alert-danger d-none mt-3"></div>
+            <div class="mt-4">
+                <a href="/create" class="btn btn-outline-primary">Создать ещё</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+    const taskId = window.location.pathname.split('/').pop();
+    const loading = document.getElementById('loading');
+    const resultBlock = document.getElementById('resultBlock');
+    const errorBlock = document.getElementById('errorBlock');
+    const coverImg = document.getElementById('coverImg');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultDesc = document.getElementById('resultDesc');
+    const resultDuration = document.getElementById('resultDuration');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const btnMp3 = document.getElementById('btnMp3');
+    const btnCover = document.getElementById('btnCover');
+    const btnRss = document.getElementById('btnRss');
+
+    let resultRetries = 0;
+    const maxResultRetries = 5;
+    function renderResult(data) {
+        loading.classList.add('d-none');
+        if (data.error) {
+            errorBlock.textContent = data.error + (data.recommendation ? ' ' + data.recommendation : '');
+            errorBlock.classList.remove('d-none');
+            return;
+        }
+        if (data.status === 'completed' && data.result) {
+            resultBlock.classList.remove('d-none');
+            resultTitle.textContent = data.result.title || 'Подкаст';
+            resultDesc.textContent = (data.result.description || '').slice(0, 300);
+            const sec = data.result.duration_seconds || 0;
+            resultDuration.textContent = 'Длительность: ' + Math.floor(sec / 60) + ' мин ' + (sec % 60) + ' сек';
+            audioPlayer.src = data.result.mp3_url;
+            if (data.result.cover_url) {
+                coverImg.src = data.result.cover_url;
+                coverImg.alt = 'Обложка';
+                coverImg.style.display = '';
+                document.getElementById('noCoverMsg').classList.add('d-none');
+                btnCover.href = data.result.cover_url;
+                btnCover.classList.remove('d-none');
+            } else {
+                coverImg.style.display = 'none';
+                document.getElementById('noCoverMsg').classList.remove('d-none');
+                btnCover.classList.add('d-none');
+            }
+            btnMp3.href = data.result.mp3_url;
+            btnRss.href = data.result.rss_url;
+        } else if (data.status === 'completed' && !data.result && resultRetries < maxResultRetries) {
+            resultRetries++;
+            setTimeout(() => fetch('/api/tasks/' + taskId).then(r => r.json()).then(renderResult).catch(() => renderResult(data)), 500);
+        } else if (data.status === 'completed' && !data.result) {
+            errorBlock.textContent = 'Результат ещё не подгрузился. Обновите страницу.';
+            errorBlock.classList.remove('d-none');
+        } else {
+            errorBlock.textContent = 'Задача ещё выполняется или завершилась с ошибкой. Статус: ' + (data.status || '') + (data.error_message ? '. ' + data.error_message : '');
+            errorBlock.classList.remove('d-none');
+        }
+    }
+    fetch('/api/tasks/' + taskId)
+        .then(r => r.json())
+        .then(renderResult)
+        .catch(() => {
+            loading.classList.add('d-none');
+            errorBlock.textContent = 'Ошибка загрузки результата. Проверьте подключение и обновите страницу.';
+            errorBlock.classList.remove('d-none');
+        });
+})();
+</script>
+{% endblock %}
